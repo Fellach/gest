@@ -1,0 +1,9 @@
+{
+  "release-type": "node",
+  "packages": {
+    ".": {
+      "package-name": "global-event-state"
+    }
+  },
+  "changelog-path": "CHANGELOG.md"
+}
