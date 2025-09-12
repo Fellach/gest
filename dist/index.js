@@ -1,17 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.globalState = exports.GlobalState = void 0;
-exports.createState = createState;
-exports.initGlobalState = initGlobalState;
-exports.getGlobalState = getGlobalState;
-class GlobalState {
-    state;
-    eventTarget;
-    middlewares;
-    history;
-    future;
-    persist;
-    storageKey;
+export class GlobalState {
     constructor({ persist = false, storageKey = "global-state" } = {}) {
         this.state = {};
         this.eventTarget = new EventTarget();
@@ -124,23 +111,22 @@ class GlobalState {
             this.saveToStorage();
     }
 }
-exports.GlobalState = GlobalState;
 // ---------- Factory & Singleton (Typed) ----------
-function createState(options) {
+export function createState(options) {
     return new GlobalState(options);
 }
 let _globalStateInstance = null;
-function initGlobalState(options, force = false) {
+export function initGlobalState(options, force = false) {
     if (!_globalStateInstance || force) {
         _globalStateInstance = new GlobalState(options);
     }
     return _globalStateInstance;
 }
-function getGlobalState() {
+export function getGlobalState() {
     if (!_globalStateInstance) {
         // default lazy init with non-persistent defaults
         _globalStateInstance = new GlobalState({ persist: false, storageKey: 'global-state' });
     }
     return _globalStateInstance;
 }
-exports.globalState = getGlobalState();
+export const globalState = getGlobalState();
