@@ -91,6 +91,30 @@ export class GlobalState {
         if (raw)
             this.state = JSON.parse(raw);
     }
+    /**
+     * Returns whether persistence is currently enabled for this instance.
+     */
+    isPersistent() {
+        return this.persist;
+    }
+    /**
+     * Enable persistence after the store has already been created (lazy upgrade).
+     * Optionally provide a storageKey if changing from the default; existing
+     * subscribers will continue to listen on the old key prefix, so changing the
+     * key after subscriptions is discouraged. If a new key is provided and
+     * differs, it will be applied before loading.
+     */
+    enablePersistence(storageKey) {
+        if (this.persist)
+            return; // already enabled
+        if (storageKey && storageKey !== this.storageKey) {
+            this.storageKey = storageKey;
+        }
+        this.persist = true;
+        this.loadFromStorage();
+        // Persist current state snapshot (might be empty if nothing set yet)
+        this.saveToStorage();
+    }
     // ---------- Undo/Redo ----------
     undo() {
         if (this.history.length === 0)
@@ -120,6 +144,13 @@ export function initGlobalState(options, force = false) {
     if (!_globalStateInstance || force) {
         _globalStateInstance = new GlobalState(options);
     }
+    else if (options?.persist) {
+        // Attempt to upgrade existing instance to persistent if it isn't already
+        const inst = _globalStateInstance;
+        if (typeof inst.isPersistent === 'function' && !inst.isPersistent()) {
+            inst.enablePersistence?.(options.storageKey);
+        }
+    }
     return _globalStateInstance;
 }
 export function getGlobalState() {
@@ -130,3 +161,10 @@ export function getGlobalState() {
     return _globalStateInstance;
 }
 export const globalState = getGlobalState();
+// Convenience helper to explicitly enable persistence on the default singleton
+// without forcing a complete reinitialization.
+export function enableGlobalPersistence(storageKey) {
+    const gs = getGlobalState();
+    gs.enablePersistence?.(storageKey);
+    return gs;
+}

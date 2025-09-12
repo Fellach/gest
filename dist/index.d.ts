@@ -14,7 +14,7 @@ export declare class GlobalState<S extends Record<string, any> = Record<string, 
     private history;
     private future;
     private persist;
-    private readonly storageKey;
+    private storageKey;
     constructor({ persist, storageKey }?: GlobalStateOptions);
     get<K extends keyof S>(key: K): S[K] | undefined;
     getAll(): Partial<S>;
@@ -31,6 +31,18 @@ export declare class GlobalState<S extends Record<string, any> = Record<string, 
     private hasStorage;
     private saveToStorage;
     private loadFromStorage;
+    /**
+     * Returns whether persistence is currently enabled for this instance.
+     */
+    isPersistent(): boolean;
+    /**
+     * Enable persistence after the store has already been created (lazy upgrade).
+     * Optionally provide a storageKey if changing from the default; existing
+     * subscribers will continue to listen on the old key prefix, so changing the
+     * key after subscriptions is discouraged. If a new key is provided and
+     * differs, it will be applied before loading.
+     */
+    enablePersistence(storageKey?: string): void;
     undo(): void;
     redo(): void;
 }
@@ -38,3 +50,4 @@ export declare function createState<S extends Record<string, any>>(options?: Glo
 export declare function initGlobalState<S extends Record<string, any>>(options?: GlobalStateOptions, force?: boolean): GlobalState<S>;
 export declare function getGlobalState<S extends Record<string, any>>(): GlobalState<S>;
 export declare const globalState: GlobalState<Record<string, any>>;
+export declare function enableGlobalPersistence(storageKey?: string): GlobalState<any>;

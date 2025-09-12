@@ -14,7 +14,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
   private history: Partial<S>[];
   private future: Partial<S>[];
   private persist: boolean;
-  private readonly storageKey: string;
+  private storageKey: string; // mutable to optionally allow late persistence enabling (see enablePersistence)
 
   constructor({ persist = false, storageKey = "global-state" }: GlobalStateOptions = {}) {
     this.state = {};
@@ -112,6 +112,31 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
     if (raw) this.state = JSON.parse(raw) as Partial<S>;
   }
 
+  /**
+   * Returns whether persistence is currently enabled for this instance.
+   */
+  isPersistent(): boolean {
+    return this.persist;
+  }
+
+  /**
+   * Enable persistence after the store has already been created (lazy upgrade).
+   * Optionally provide a storageKey if changing from the default; existing
+   * subscribers will continue to listen on the old key prefix, so changing the
+   * key after subscriptions is discouraged. If a new key is provided and
+   * differs, it will be applied before loading.
+   */
+  enablePersistence(storageKey?: string): void {
+    if (this.persist) return; // already enabled
+    if (storageKey && storageKey !== this.storageKey) {
+      this.storageKey = storageKey;
+    }
+    this.persist = true;
+    this.loadFromStorage();
+    // Persist current state snapshot (might be empty if nothing set yet)
+    this.saveToStorage();
+  }
+
   // ---------- Undo/Redo ----------
   undo(): void {
     if (this.history.length === 0) return;
@@ -140,6 +165,13 @@ export function initGlobalState<S extends Record<string, any>>(options?: GlobalS
   if (!_globalStateInstance || force) {
     _globalStateInstance = new GlobalState(options);
   }
+  else if (options?.persist) {
+    // Attempt to upgrade existing instance to persistent if it isn't already
+    const inst = _globalStateInstance as GlobalState<any> & { isPersistent?: () => boolean; enablePersistence?: (k?: string) => void };
+    if (typeof inst.isPersistent === 'function' && !inst.isPersistent()) {
+      inst.enablePersistence?.(options.storageKey);
+    }
+  }
   return _globalStateInstance as GlobalState<S>;
 }
 
@@ -152,3 +184,11 @@ export function getGlobalState<S extends Record<string, any>>(): GlobalState<S> 
 }
 
 export const globalState = getGlobalState();
+
+// Convenience helper to explicitly enable persistence on the default singleton
+// without forcing a complete reinitialization.
+export function enableGlobalPersistence(storageKey?: string) {
+  const gs = getGlobalState<any>();
+  (gs as any).enablePersistence?.(storageKey);
+  return gs as GlobalState<any>;
+}
