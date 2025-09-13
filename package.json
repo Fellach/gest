@@ -1,6 +1,6 @@
 {
   "name": "global-event-state",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Marcin Feleniak",
   "type": "module",
   "main": "dist/index.js",

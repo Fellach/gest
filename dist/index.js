@@ -7,6 +7,7 @@ export class GlobalState {
         this.future = [];
         this.persist = persist;
         this.storageKey = storageKey;
+        this.version = 0;
         if (this.persist)
             this.loadFromStorage();
     }
@@ -15,12 +16,15 @@ export class GlobalState {
         return this.state[key];
     }
     getAll() {
+        // Return a shallow clone to prevent accidental mutation, but callers that
+        // need referential stability should rely on a caching layer (e.g. React hook).
         return { ...this.state };
     }
     set(key, value) {
         this.runMiddlewares("before", { key, value });
         this.history.push({ ...this.state });
         this.state[key] = value;
+        this.version++;
         this.emit(String(key), value);
         this.emit("*", { [key]: value });
         this.runMiddlewares("after", { key, value });
@@ -36,6 +40,7 @@ export class GlobalState {
     remove(key) {
         if (key in this.state) {
             delete this.state[key];
+            this.version++;
             this.emit(String(key), undefined);
             if (this.persist)
                 this.saveToStorage();
@@ -43,6 +48,7 @@ export class GlobalState {
     }
     clear() {
         this.state = {};
+        this.version++;
         this.emit("*", {});
         if (this.persist)
             this.saveToStorage();
@@ -121,6 +127,7 @@ export class GlobalState {
             return;
         this.future.push({ ...this.state });
         this.state = this.history.pop();
+        this.version++;
         this.emit("*", { ...this.state });
         if (this.persist)
             this.saveToStorage();
@@ -130,6 +137,7 @@ export class GlobalState {
             return;
         this.history.push({ ...this.state });
         this.state = this.future.pop();
+        this.version++;
         this.emit("*", { ...this.state });
         if (this.persist)
             this.saveToStorage();

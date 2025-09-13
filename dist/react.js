@@ -12,8 +12,19 @@ function subscribeAll(store, cb) {
 function getKeySnapshot(store, key) {
     return store.get(key);
 }
+// We store the cache on the store instance via a WeakMap so multiple stores are supported.
+const allCache = new WeakMap();
 function getAllSnapshot(store) {
-    return store.getAll();
+    // Access internal version if present; fallback to increment heuristic.
+    const anyStore = store;
+    const currentVersion = typeof anyStore.version === 'number' ? anyStore.version : -1;
+    const cached = allCache.get(store);
+    if (cached && cached.version === currentVersion) {
+        return cached.value;
+    }
+    const fresh = anyStore.getAll();
+    allCache.set(store, { version: currentVersion, value: fresh });
+    return fresh;
 }
 /**
  * Hook to read & write a single key from the global state.

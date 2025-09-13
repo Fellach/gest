@@ -15,6 +15,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
   private future: Partial<S>[];
   private persist: boolean;
   private storageKey: string; // mutable to optionally allow late persistence enabling (see enablePersistence)
+  private version: number; // monotonically increasing for snapshot stability
 
   constructor({ persist = false, storageKey = "global-state" }: GlobalStateOptions = {}) {
     this.state = {};
@@ -24,6 +25,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
     this.future = [];
     this.persist = persist;
     this.storageKey = storageKey;
+    this.version = 0;
     if (this.persist) this.loadFromStorage();
   }
 
@@ -33,6 +35,8 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
   }
 
   getAll(): Partial<S> {
+    // Return a shallow clone to prevent accidental mutation, but callers that
+    // need referential stability should rely on a caching layer (e.g. React hook).
     return { ...this.state };
   }
 
@@ -40,6 +44,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
     this.runMiddlewares("before", { key, value });
     this.history.push({ ...this.state });
     (this.state as any)[key] = value;
+    this.version++;
     this.emit(String(key), value);
     this.emit("*", { [key]: value } as any);
     this.runMiddlewares("after", { key, value });
@@ -55,6 +60,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
   remove<K extends keyof S>(key: K): void {
     if (key in this.state) {
       delete (this.state as any)[key];
+      this.version++;
       this.emit(String(key), undefined);
       if (this.persist) this.saveToStorage();
     }
@@ -62,6 +68,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
 
   clear(): void {
     this.state = {};
+    this.version++;
     this.emit("*", {} as any);
     if (this.persist) this.saveToStorage();
   }
@@ -142,6 +149,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
     if (this.history.length === 0) return;
     this.future.push({ ...this.state });
     this.state = this.history.pop()!;
+    this.version++;
     this.emit("*", { ...this.state });
     if (this.persist) this.saveToStorage();
   }
@@ -149,6 +157,7 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
     if (this.future.length === 0) return;
     this.history.push({ ...this.state });
     this.state = this.future.pop()!;
+    this.version++;
     this.emit("*", { ...this.state });
     if (this.persist) this.saveToStorage();
   }

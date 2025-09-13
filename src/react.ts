@@ -16,8 +16,27 @@ function getKeySnapshot<S extends Record<string, any>, K extends keyof S>(store:
   return store.get(key);
 }
 
+// Cached snapshot utility: maintain last shallow object to satisfy
+// useSyncExternalStore requirement that getSnapshot returns same ref when unchanged.
+interface CachedAll<S extends Record<string, any>> {
+  version: number;
+  value: Partial<S>;
+}
+
+// We store the cache on the store instance via a WeakMap so multiple stores are supported.
+const allCache = new WeakMap<object, CachedAll<any>>();
+
 function getAllSnapshot<S extends Record<string, any>>(store: GlobalState<S>) {
-  return store.getAll();
+  // Access internal version if present; fallback to increment heuristic.
+  const anyStore = store as any as { getAll: () => Partial<S>; version?: number };
+  const currentVersion = typeof anyStore.version === 'number' ? anyStore.version : -1;
+  const cached = allCache.get(store);
+  if (cached && cached.version === currentVersion) {
+    return cached.value;
+  }
+  const fresh = anyStore.getAll();
+  allCache.set(store, { version: currentVersion, value: fresh });
+  return fresh;
 }
 
 /**

@@ -41,7 +41,7 @@ function UserEditor() {
 }
 
 function DerivedDisplay() {
-  const userName = gs.useGlobalSelector((s: Partial<AppState>) => s.user?.name ?? 'Guest');
+  const userName = gs.useGlobalSelector((s) => s.user?.name ?? 'Guest');
   return <div>Derived user name: {userName}</div>;
 }
 
@@ -73,7 +73,7 @@ export function App() {
       <UserEditor />
       <DerivedDisplay />
       <HistoryControls />
-      {/* <DebugState /> */}
+      <DebugState />
     </div>
   );
 }

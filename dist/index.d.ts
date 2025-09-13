@@ -15,6 +15,7 @@ export declare class GlobalState<S extends Record<string, any> = Record<string, 
     private future;
     private persist;
     private storageKey;
+    private version;
     constructor({ persist, storageKey }?: GlobalStateOptions);
     get<K extends keyof S>(key: K): S[K] | undefined;
     getAll(): Partial<S>;
