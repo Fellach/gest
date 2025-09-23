@@ -9,7 +9,8 @@ interface AppState {
 }
 
 // Initialize once (demo only; in real apps do this in a bootstrap module)
-const store = initGlobalState<AppState>({ persist: true, storageKey: 'gest-demo' });
+// Persistence will be a no-op on the server.
+export const store = initGlobalState<AppState>({ persist: true, storageKey: 'gest-demo' });
 const gs = createGlobalStateHooks(store);
 
 function ThemeToggle() {

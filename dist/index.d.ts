@@ -46,6 +46,20 @@ export declare class GlobalState<S extends Record<string, any> = Record<string, 
     enablePersistence(storageKey?: string): void;
     undo(): void;
     redo(): void;
+    /**
+     * Hydrate or batch apply a snapshot.
+     * Options:
+     *  - mode: 'merge' (default) merges keys, 'replace' overwrites entire state.
+     *  - emit: whether to emit a single wildcard change event (default true).
+     *  - recordHistory: push previous snapshot onto history stack (default false).
+     *  - onlyNew: when mode='merge', only set keys that are currently undefined (useful for SSR to avoid overwriting client-changed values during HMR).
+     */
+    hydrate(snapshot: Partial<S>, opts?: {
+        mode?: 'merge' | 'replace';
+        emit?: boolean;
+        recordHistory?: boolean;
+        onlyNew?: boolean;
+    }): void;
 }
 export declare function createState<S extends Record<string, any>>(options?: GlobalStateOptions): GlobalState<S>;
 export declare function initGlobalState<S extends Record<string, any>>(options?: GlobalStateOptions, force?: boolean): GlobalState<S>;

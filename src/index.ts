@@ -161,6 +161,40 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
     this.emit("*", { ...this.state });
     if (this.persist) this.saveToStorage();
   }
+
+  /**
+   * Hydrate or batch apply a snapshot.
+   * Options:
+   *  - mode: 'merge' (default) merges keys, 'replace' overwrites entire state.
+   *  - emit: whether to emit a single wildcard change event (default true).
+   *  - recordHistory: push previous snapshot onto history stack (default false).
+   *  - onlyNew: when mode='merge', only set keys that are currently undefined (useful for SSR to avoid overwriting client-changed values during HMR).
+   */
+  hydrate(snapshot: Partial<S>, opts: { mode?: 'merge' | 'replace'; emit?: boolean; recordHistory?: boolean; onlyNew?: boolean } = {}): void {
+    const { mode = 'merge', emit = true, recordHistory = false, onlyNew = false } = opts;
+    if (recordHistory) {
+      this.history.push({ ...this.state });
+    }
+    let changed = false;
+    if (mode === 'replace') {
+      const prevKeys = Object.keys(this.state as any).length;
+      this.state = { ...snapshot } as Partial<S>;
+      changed = prevKeys > 0 || Object.keys(snapshot as any).length > 0;
+    } else {
+      for (const [k, v] of Object.entries(snapshot) as [keyof S, S[keyof S]][]) {
+        if (onlyNew && this.state[k] !== undefined) continue;
+        if (v !== undefined && this.state[k] !== v) {
+          (this.state as any)[k] = v;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      this.version++;
+      if (emit) this.emit('*', { ...this.state });
+      if (this.persist) this.saveToStorage();
+    }
+  }
 }
 
 // ---------- Factory & Singleton (Typed) ----------
