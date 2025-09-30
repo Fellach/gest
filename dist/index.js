@@ -21,13 +21,16 @@ export class GlobalState {
         return { ...this.state };
     }
     set(key, value) {
-        this.runMiddlewares("before", { key, value });
+        const ctx = { key, value };
+        if (!this.runMiddlewares('before', ctx))
+            return; // aborted by middleware
+        value = ctx.value; // might have been mutated
         this.history.push({ ...this.state });
         this.state[key] = value;
         this.version++;
         this.emit(String(key), value);
-        this.emit("*", { [key]: value });
-        this.runMiddlewares("after", { key, value });
+        this.emit('*', { [key]: value });
+        this.runMiddlewares('after', { key, value });
         if (this.persist)
             this.saveToStorage();
     }
@@ -77,9 +80,26 @@ export class GlobalState {
     useAfter(fn) {
         this.middlewares.after.push(fn);
     }
+    /**
+     * Remove a previously registered middleware function. No-op if not present.
+     * Public to support React hook cleanup or dynamic middleware lifecycles.
+     */
+    removeMiddleware(type, fn) {
+        const list = this.middlewares[type];
+        const idx = list.indexOf(fn);
+        if (idx >= 0)
+            list.splice(idx, 1);
+    }
     runMiddlewares(type, ctx) {
-        for (const fn of this.middlewares[type])
-            fn(ctx, this.state);
+        for (const fn of this.middlewares[type]) {
+            const res = fn(ctx, this.state);
+            if (res === false)
+                return false; // abort chain
+            if (res && typeof res === 'object' && 'value' in res) {
+                ctx.value = res.value;
+            }
+        }
+        return true;
     }
     // ---------- Persistence ----------
     hasStorage() {

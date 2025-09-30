@@ -1,4 +1,4 @@
-import { GlobalState } from './index';
+import { GlobalState, MiddlewareFn } from './index';
 /**
  * Hook to read & write a single key from the global state.
  * Returns a tuple: [value, setValue].
@@ -45,5 +45,16 @@ export declare function createGlobalStateHooks<S extends Record<string, any>>(st
         undo: () => void;
         redo: () => void;
     };
+    useBefore: (fn: MiddlewareFn<S>) => void;
+    useAfter: (fn: MiddlewareFn<S>) => void;
 };
 export type { GlobalState };
+/**
+ * React hook to register a middleware function (before/after) with automatic cleanup.
+ * The function identity should be stable (wrap with useCallback if capturing props).
+ */
+export declare function useGlobalMiddleware<S extends Record<string, any>>(type: 'before' | 'after', fn: MiddlewareFn<S>, store?: GlobalState<S>): void;
+/** Shorthand hook for before middleware */
+export declare function useBeforeMiddleware<S extends Record<string, any>>(fn: MiddlewareFn<S>, store?: GlobalState<S>): void;
+/** Shorthand hook for after middleware */
+export declare function useAfterMiddleware<S extends Record<string, any>>(fn: MiddlewareFn<S>, store?: GlobalState<S>): void;

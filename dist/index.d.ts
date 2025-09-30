@@ -5,7 +5,9 @@ export interface GlobalStateOptions {
 export type MiddlewareFn<S extends Record<string, any>> = <K extends keyof S>(ctx: {
     key: K;
     value: S[K];
-}, state: Partial<S>) => void;
+}, state: Partial<S>) => void | false | {
+    value: S[K];
+};
 export type EventCallback<T> = (value: T) => void;
 export declare class GlobalState<S extends Record<string, any> = Record<string, any>> {
     private state;
@@ -28,6 +30,11 @@ export declare class GlobalState<S extends Record<string, any> = Record<string, 
     private emit;
     useBefore(fn: MiddlewareFn<S>): void;
     useAfter(fn: MiddlewareFn<S>): void;
+    /**
+     * Remove a previously registered middleware function. No-op if not present.
+     * Public to support React hook cleanup or dynamic middleware lifecycles.
+     */
+    removeMiddleware(type: 'before' | 'after', fn: MiddlewareFn<S>): void;
     private runMiddlewares;
     private hasStorage;
     private saveToStorage;

@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useRef, useCallback } from 'react';
+import { useSyncExternalStore, useRef, useCallback, useEffect } from 'react';
 import { getGlobalState } from './index';
 // Internal subscription helper for a single key
 function subscribeKey(store, key, cb) {
@@ -97,6 +97,8 @@ export function createGlobalStateHooks(store) {
     const useAllHook = () => useGlobalAll(store);
     const useSelectorHook = (selector, isEqual) => useGlobalSelector(selector, store, isEqual);
     const useHistoryHook = () => useGlobalHistory(store);
+    const useBeforeHook = (fn) => useGlobalMiddleware('before', fn, store);
+    const useAfterHook = (fn) => useGlobalMiddleware('after', fn, store);
     return {
         store,
         useGlobalState: useStateHook,
@@ -104,5 +106,32 @@ export function createGlobalStateHooks(store) {
         useGlobalAll: useAllHook,
         useGlobalSelector: useSelectorHook,
         useGlobalHistory: useHistoryHook,
+        useBefore: useBeforeHook,
+        useAfter: useAfterHook,
     };
+}
+/**
+ * React hook to register a middleware function (before/after) with automatic cleanup.
+ * The function identity should be stable (wrap with useCallback if capturing props).
+ */
+export function useGlobalMiddleware(type, fn, store) {
+    const gs = (store || getGlobalState());
+    // Register on mount / dependency change
+    useEffect(() => {
+        if (type === 'before')
+            gs.useBefore(fn);
+        else
+            gs.useAfter(fn);
+        return () => {
+            gs.removeMiddleware?.(type, fn);
+        };
+    }, [gs, type, fn]);
+}
+/** Shorthand hook for before middleware */
+export function useBeforeMiddleware(fn, store) {
+    return useGlobalMiddleware('before', fn, store);
+}
+/** Shorthand hook for after middleware */
+export function useAfterMiddleware(fn, store) {
+    return useGlobalMiddleware('after', fn, store);
 }

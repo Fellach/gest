@@ -1,5 +1,5 @@
-import { useSyncExternalStore, useRef, useCallback } from 'react';
-import { getGlobalState, GlobalState } from './index';
+import { useSyncExternalStore, useRef, useCallback, useEffect } from 'react';
+import { getGlobalState, GlobalState, MiddlewareFn } from './index';
 
 // Internal subscription helper for a single key
 function subscribeKey<S extends Record<string, any>, K extends keyof S>(store: GlobalState<S>, key: K, cb: () => void) {
@@ -131,6 +131,8 @@ export function createGlobalStateHooks<S extends Record<string, any>>(store: Glo
   const useAllHook = () => useGlobalAll<S>(store);
   const useSelectorHook = <T>(selector: (s: Partial<S>) => T, isEqual?: (a: T, b: T) => boolean) => useGlobalSelector<S, T>(selector, store, isEqual);
   const useHistoryHook = () => useGlobalHistory<S>(store);
+  const useBeforeHook = (fn: MiddlewareFn<S>) => useGlobalMiddleware<S>('before', fn, store);
+  const useAfterHook = (fn: MiddlewareFn<S>) => useGlobalMiddleware<S>('after', fn, store);
   return {
     store,
     useGlobalState: useStateHook,
@@ -138,7 +140,38 @@ export function createGlobalStateHooks<S extends Record<string, any>>(store: Glo
     useGlobalAll: useAllHook,
     useGlobalSelector: useSelectorHook,
     useGlobalHistory: useHistoryHook,
+    useBefore: useBeforeHook,
+    useAfter: useAfterHook,
   };
 }
 
 export type { GlobalState };
+
+/**
+ * React hook to register a middleware function (before/after) with automatic cleanup.
+ * The function identity should be stable (wrap with useCallback if capturing props).
+ */
+export function useGlobalMiddleware<S extends Record<string, any>>(
+  type: 'before' | 'after',
+  fn: MiddlewareFn<S>,
+  store?: GlobalState<S>
+) {
+  const gs = (store || getGlobalState<S>()) as GlobalState<S> & { removeMiddleware?: (t: 'before' | 'after', f: MiddlewareFn<S>) => void };
+  // Register on mount / dependency change
+  useEffect(() => {
+    if (type === 'before') gs.useBefore(fn);
+    else gs.useAfter(fn);
+    return () => {
+      gs.removeMiddleware?.(type, fn);
+    };
+  }, [gs, type, fn]);
+}
+
+/** Shorthand hook for before middleware */
+export function useBeforeMiddleware<S extends Record<string, any>>(fn: MiddlewareFn<S>, store?: GlobalState<S>) {
+  return useGlobalMiddleware('before', fn, store);
+}
+/** Shorthand hook for after middleware */
+export function useAfterMiddleware<S extends Record<string, any>>(fn: MiddlewareFn<S>, store?: GlobalState<S>) {
+  return useGlobalMiddleware('after', fn, store);
+}

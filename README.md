@@ -106,6 +106,43 @@ gs.set('count', 5); // OK
 // gs.set('count', -1); // Throws at runtime by middleware
 ```
 
+### 3.1 Middleware Abort / Mutation (no exceptions)
+
+You can prevent a state update or mutate the value without throwing:
+
+Return values for `useBefore` middleware:
+
+| Return            | Meaning                                                   |
+| ----------------- | --------------------------------------------------------- |
+| `void` / nothing  | Continue normally                                         |
+| `false`           | Abort the update (state not changed, after-middleware skipped) |
+| `{ value: newVal }` | Replace the value that will be written; continue          |
+
+Example:
+
+```ts
+// Prevent setting theme to 'dark'
+gs.useBefore(({ key, value }) => {
+  if (key === 'theme' && value === 'dark') return false; // abort
+});
+
+// Normalize usernames
+gs.useBefore(({ key, value }) => {
+  if (key === 'user' && value) {
+    return { value: { ...value, name: value.name.trim() } };
+  }
+});
+
+gs.set('theme', 'dark'); // aborted, state unchanged
+gs.set('user', { id: 1, name: '  Alice  ' }); // name -> 'Alice'
+```
+
+Notes:
+* Aborted updates do NOT push to history or emit events.
+* Multiple mutation middlewares run in order; each sees the previous one's output.
+* `after` middlewares still only run if the update wasn't aborted.
+
+
 ---
 
 ## 4. Undo / Redo
@@ -200,12 +237,16 @@ Re-initializing: calling `initGlobalState` again returns the existing instance (
 | `subscribeAll(cb)`                        | Listen to all changes                                                           |
 | `useBefore(fn)`                           | Pre-mutation middleware                                                         |
 | `useAfter(fn)`                            | Post-mutation middleware                                                        |
+| `removeMiddleware(type, fn)`              | Remove a registered middleware (used internally by React hook cleanup)          |
 | `undo()` / `redo()`                       | History navigation                                                              |
 | React (subpath) `useGlobalState(key)`     | React hook subscribe to single key                                              |
 | React `useGlobalAll()`                    | Full state snapshot (re-renders on any change)                                  |
 | React `useGlobalSelector(fn)`             | Derived slice with equality check                                               |
 | React `useSetGlobalState(key)`            | Setter only hook                                                                |
 | React `useGlobalHistory()`                | Undo/redo callbacks                                                             |
+| React `useGlobalMiddleware(type, fn)`     | Register before/after middleware with auto cleanup                              |
+| React `useBeforeMiddleware(fn)`           | Shorthand for `useGlobalMiddleware('before', fn)`                               |
+| React `useAfterMiddleware(fn)`            | Shorthand for `useGlobalMiddleware('after', fn)`                                |
 
 ---
 
@@ -324,6 +365,8 @@ Factory returned hooks (all already bound to the provided store):
 | `useGlobalAll()`                  | `useGlobalAll`         | Snapshot of entire state                        |
 | `useGlobalSelector(fn, isEqual?)` | `useGlobalSelector`    | Derived slice w/ optional comparator            |
 | `useGlobalHistory()`              | `useGlobalHistory`     | Undo/redo callbacks                             |
+| `useBefore(fn)`                   | `useBeforeMiddleware`  | Register before middleware (auto cleanup)       |
+| `useAfter(fn)`                    | `useAfterMiddleware`   | Register after middleware (auto cleanup)        |
 
 Tip: You can alias them locally if you want shorter names:
 
@@ -347,6 +390,10 @@ const gs = createState<AppState>({ persist: true });
 
 gs.useAfter(({ key, value }) => console.log('Changed:', key, value));
 gs.subscribeAll((delta) => console.log('Delta:', delta));
+
+// React-specific example (inside a component) registering a middleware:
+// import { useBeforeMiddleware } from 'global-event-state/react';
+// useBeforeMiddleware(({ key, value }) => { console.log('About to set', key, value); });
 
 gs.set('user', { id: 1 });
 gs.set('theme', 'dark');

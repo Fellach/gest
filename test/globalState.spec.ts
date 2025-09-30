@@ -62,10 +62,44 @@ describe('GlobalState (generic)', () => {
   it('middleware before/after are executed', () => {
     const store = createState<AppState>();
     const calls: string[] = [];
-    store.useBefore(({ key }) => calls.push(`b:${String(key)}`));
-    store.useAfter(({ key }) => calls.push(`a:${String(key)}`));
+    store.useBefore(({ key }) => { calls.push(`b:${String(key)}`); });
+    store.useAfter(({ key }) => { calls.push(`a:${String(key)}`); });
     store.set('theme', 'dark');
     expect(calls).toEqual(['b:theme', 'a:theme']);
+  });
+
+  it('before middleware can mutate value', () => {
+    const store = createState<AppState>();
+  store.useBefore(((ctx: any) => {
+      if (ctx.key === 'theme' && ctx.value === 'dark') {
+        return { value: 'light' as AppState['theme'] } as any; // cast for generic middleware return
+      }
+    }) as any);
+    store.set('theme', 'dark');
+    expect(store.get('theme')).toBe('light');
+  });
+
+  it('before middleware can abort update', () => {
+    const store = createState<AppState>();
+    store.set('theme', 'light');
+  store.useBefore(((ctx: any) => {
+      if (ctx.key === 'theme' && ctx.value === 'dark') {
+        return false;
+      }
+    }) as any);
+    store.set('theme', 'dark');
+    expect(store.get('theme')).toBe('light'); // unchanged
+  });
+
+  it('removeMiddleware stops further calls', () => {
+    const store = createState<AppState>();
+    const beforeFn = ({ key }: any) => calls.push(`b:${String(key)}`);
+    const calls: string[] = [];
+    store.useBefore(beforeFn as any);
+    store.set('theme', 'light'); // first call
+    store.removeMiddleware('before', beforeFn as any);
+    store.set('theme', 'dark'); // should not call removed middleware
+    expect(calls).toEqual(['b:theme']);
   });
 
   it('initGlobalState creates typed singleton and getGlobalState reuses it', () => {

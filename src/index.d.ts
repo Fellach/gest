@@ -6,7 +6,7 @@ export interface GlobalStateOptions {
 export type MiddlewareFn<S extends Record<string, any>> = <K extends keyof S>(
   ctx: { key: K; value: S[K] },
   state: Partial<S>
-) => void;
+) => void | false | { value: S[K] };
 
 export declare class GlobalState<S extends Record<string, any> = Record<string, any>> {
   constructor(options?: GlobalStateOptions);
@@ -20,6 +20,7 @@ export declare class GlobalState<S extends Record<string, any> = Record<string, 
   subscribeAll(callback: (delta: Partial<S>) => void): () => void;
   useBefore(fn: MiddlewareFn<S>): void;
   useAfter(fn: MiddlewareFn<S>): void;
+  removeMiddleware(type: 'before' | 'after', fn: MiddlewareFn<S>): void;
   undo(): void;
   redo(): void;
 }

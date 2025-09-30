@@ -3,7 +3,11 @@ export interface GlobalStateOptions {
   storageKey?: string;
 }
 
-export type MiddlewareFn<S extends Record<string, any>> = <K extends keyof S>(ctx: { key: K; value: S[K] }, state: Partial<S>) => void;
+// Middleware contract:
+//  - Return void: no change, continue
+//  - Return false: abort the remaining middleware chain and (for 'before') skip the state update
+//  - Return { value }: mutate the value being set (only meaningful in 'before')
+export type MiddlewareFn<S extends Record<string, any>> = <K extends keyof S>(ctx: { key: K; value: S[K] }, state: Partial<S>) => void | false | { value: S[K] };
 
 export type EventCallback<T> = (value: T) => void;
 
@@ -41,13 +45,15 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
   }
 
   set<K extends keyof S>(key: K, value: S[K]): void {
-    this.runMiddlewares("before", { key, value });
+    const ctx = { key, value } as { key: K; value: S[K] };
+    if (!this.runMiddlewares('before', ctx)) return; // aborted by middleware
+    value = ctx.value; // might have been mutated
     this.history.push({ ...this.state });
     (this.state as any)[key] = value;
     this.version++;
     this.emit(String(key), value);
-    this.emit("*", { [key]: value } as any);
-    this.runMiddlewares("after", { key, value });
+    this.emit('*', { [key]: value } as any);
+    this.runMiddlewares('after', { key, value });
     if (this.persist) this.saveToStorage();
   }
 
@@ -100,8 +106,24 @@ export class GlobalState<S extends Record<string, any> = Record<string, any>> {
   useAfter(fn: MiddlewareFn<S>): void {
     this.middlewares.after.push(fn);
   }
-  private runMiddlewares(type: "before" | "after", ctx: { key: keyof S; value: any }): void {
-    for (const fn of this.middlewares[type]) fn(ctx as any, this.state);
+  /**
+   * Remove a previously registered middleware function. No-op if not present.
+   * Public to support React hook cleanup or dynamic middleware lifecycles.
+   */
+  removeMiddleware(type: 'before' | 'after', fn: MiddlewareFn<S>): void {
+    const list = this.middlewares[type];
+    const idx = list.indexOf(fn as any);
+    if (idx >= 0) list.splice(idx, 1);
+  }
+  private runMiddlewares(type: 'before' | 'after', ctx: { key: keyof S; value: any }): boolean {
+    for (const fn of this.middlewares[type]) {
+      const res = fn(ctx as any, this.state);
+      if (res === false) return false; // abort chain
+      if (res && typeof res === 'object' && 'value' in res) {
+        ctx.value = (res as any).value;
+      }
+    }
+    return true;
   }
 
   // ---------- Persistence ----------
