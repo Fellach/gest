@@ -1,6 +1,7 @@
 import React from 'react';
-import { App, store } from './App';
+import { App } from './App';
 import { renderToString } from 'react-dom/server';
+import { store } from './globalStore';
 
 export function render() {
   // Provide some default initial state for SSR (could be fetched per request)

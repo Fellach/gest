@@ -1,17 +1,5 @@
 import React from 'react';
-import { initGlobalState } from 'global-event-state';
-import { createGlobalStateHooks } from 'global-event-state/react';
-
-interface AppState {
-  theme: 'light' | 'dark';
-  count: number;
-  user: { id: number; name: string } | null;
-}
-
-// Initialize once (demo only; in real apps do this in a bootstrap module)
-// Persistence will be a no-op on the server.
-export const store = initGlobalState<AppState>({ persist: true, storageKey: 'gest-demo' });
-const gs = createGlobalStateHooks(store);
+import { gs } from './globalStore';
 
 function ThemeToggle() {
   const [theme, setTheme] = gs.useGlobalState('theme');

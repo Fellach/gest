@@ -1,20 +1,29 @@
 import React from 'react';
 import { hydrateRoot, createRoot } from 'react-dom/client';
-import { App, store } from './App';
+import { App } from './App';
+import { commitInitialState, readPersistedSnapshot } from './globalStore';
 
-// If server provided an initial state snapshot, apply it before first render.
-(() => {
-  if (typeof document === 'undefined') return;
+function readSSRSnapshot(): Record<string, unknown> | null {
+  if (typeof document === 'undefined') return null;
   const el = document.getElementById('__GEST_STATE__');
-  if (!el) return;
+  if (!el) return null;
   try {
     const json = el.textContent || '{}';
-    const data = JSON.parse(json);
-    (store as any).hydrate ? (store as any).hydrate(data, { mode: 'merge', onlyNew: true }) : Object.entries(data).forEach(([k, v]) => (store as any).set(k, v));
-  } catch (e) {
-    console.warn('[gest] Failed to parse SSR state', e);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch (err) {
+    console.warn('[gest] Failed to parse SSR state', err);
+    return null;
   }
-})();
+}
+
+const ssrSnapshot = readSSRSnapshot();
+const persistedSnapshot = readPersistedSnapshot();
+const initialState = {
+  ...(persistedSnapshot ?? {}),
+  ...(ssrSnapshot ?? {}),
+};
+
+commitInitialState(initialState, true);
 
 // Attempt to hydrate if server-rendered markup exists; otherwise create root.
 const container = document.getElementById('root');
